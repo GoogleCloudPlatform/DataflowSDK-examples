@@ -34,7 +34,7 @@
     examples.</description>
   <url>http://cloud.google.com/dataflow</url>
 
-  <version>0.4.150727-SNAPSHOT</version>
+  <version>manual_build</version>
 
   <packaging>jar</packaging>
 
@@ -80,12 +80,14 @@
   </build>
 
   <dependencies>
+    <!-- Adds a dependency on a specific version of the Dataflow SDK. -->
     <dependency>
       <groupId>com.google.cloud.dataflow</groupId>
       <artifactId>google-cloud-dataflow-java-sdk-all</artifactId>
       <version>0.4.150727</version>
     </dependency>
 
+    <!-- Dependencies below this line are specific dependencies needed by the examples code. -->
     <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-storage</artifactId>
