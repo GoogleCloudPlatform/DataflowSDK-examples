@@ -41,27 +41,23 @@ import java.util.UUID;
 /**
  * A WordCount example using DatastoreIO.
  *
- * <p> This example shows how to use DatastoreIO to read from Datastore and
+ * <p>This example shows how to use DatastoreIO to read from Datastore and
  * write the results to Cloud Storage.  Note that this example will write
  * data to Datastore, which may incur charge for Datastore operations.
  *
- * <p> To run this example, users need to use gcloud to get credential for Datastore:
+ * <p>To run this example, users need to use gcloud to get credential for Datastore:
  * <pre>{@code
  * $ gcloud auth login
  * }</pre>
  *
- * <p> Note that the environment variable CLOUDSDK_EXTRA_SCOPES must be set
- * to the same value when executing a Datastore pipeline, as the local auth
- * cache is keyed by the requested scopes.
- *
- * <p> To run this pipeline locally, the following options must be provided:
+ * <p>To run this pipeline locally, the following options must be provided:
  * <pre>{@code
  *   --project=YOUR_PROJECT_ID
  *   --dataset=YOUR_DATASET_ID
  *   --output=[YOUR_LOCAL_FILE | gs://YOUR_OUTPUT_PATH]
  * }</pre>
  *
- * <p> To run this example using Dataflow service, you must additionally
+ * <p>To run this example using Dataflow service, you must additionally
  * provide either {@literal --stagingLocation} or {@literal --tempLocation}, and
  * select one of the Dataflow pipeline runners, eg
  * {@literal --runner=BlockingDataflowPipelineRunner}.
@@ -73,8 +69,6 @@ public class DatastoreWordCount {
    * Shakespeare play) and converts it to a string.
    */
   static class GetContentFn extends DoFn<Entity, String> {
-    private static final long serialVersionUID = 0;
-
     @Override
     public void processElement(ProcessContext c) {
       Map<String, Value> props = DatastoreHelper.getPropertyMap(c.element());
@@ -89,8 +83,6 @@ public class DatastoreWordCount {
    * A DoFn that creates entity for every line in Shakespeare.
    */
   static class CreateEntityFn extends DoFn<String, Entity> {
-    private static final long serialVersionUID = 0;
-
     private String kind;
 
     CreateEntityFn(String kind) {
@@ -117,8 +109,8 @@ public class DatastoreWordCount {
 
   /**
    * Options supported by {@link DatastoreWordCount}.
-   * <p>
-   * Inherits standard configuration options.
+   *
+   * <p>Inherits standard configuration options.
    */
   public static interface Options extends PipelineOptions {
     @Description("Path of the file to read from and store to Datastore")
