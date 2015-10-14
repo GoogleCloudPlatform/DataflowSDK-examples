@@ -38,6 +38,137 @@
 
   <packaging>jar</packaging>
 
+  <profiles>
+
+    <!-- A profile that activates for JDK 8 and above to enable examples and 
+         tests that use Java 8 language features, which are kept in
+         src/main/java8 and src/test/java8, respectively. -->
+    <profile>
+      <id>java8</id>
+      <activation>
+        <jdk>[1.8,)</jdk>
+      </activation>
+
+      <build>
+        <plugins>
+          <!-- Tell Maven about the Java 8 main and test source root. -->
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <executions>
+              <!-- Tell Maven about the Java 8 main source root. -->
+              <execution>
+                <id>add-java8-main-source</id>
+                <phase>initialize</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>${project.basedir}/src/main/java8</source>
+                  </sources>
+                </configuration>
+              </execution>
+
+              <!-- Tell Maven about the Java 8 test source root. -->
+              <execution>
+                <id>add-java8-test-source</id>
+                <phase>initialize</phase>
+                <goals>
+                  <goal>add-test-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>${project.basedir}/src/test/java8</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <executions>
+
+              <!-- Set `-source 1.7 -target 1.7` for Java 7 tests -->
+              <execution>
+                <id>default-testCompile</id>
+                <phase>test-compile</phase>
+                <goals>
+                  <goal>testCompile</goal>
+                </goals>
+                <configuration>
+                  <testSource>1.7</testSource>
+                  <testTarget>1.7</testTarget>
+                  <testExcludes>
+                    <!-- This pattern is brittle; we would prefer to filter on the directory
+                         but that seems to be unavailable to us. -->
+                    <exclude>**/*Java8Test.java</exclude>
+                  </testExcludes>
+                </configuration>
+              </execution>
+
+              <!-- Set `-source 1.8 -target 1.8` for Java 8 tests -->
+              <execution>
+                <id>java8-test-compile</id>
+                <phase>test-compile</phase>
+                <goals>
+                  <goal>testCompile</goal>
+                </goals>
+                <configuration>
+                  <testSource>1.8</testSource>
+                  <testTarget>1.8</testTarget>
+                  <includes>
+                    <!-- This pattern is brittle; we would prefer to filter on the directory
+                         but that seems to be unavailable to us. -->
+                    <include>**/*Java8Test.java</include>
+                  </includes>
+                </configuration>
+              </execution>
+
+              <!-- Set `-source 1.7 -target 1.7` for Java 7 examples -->
+              <execution>
+                <id>default-compile</id>
+                <phase>compile</phase>
+                <goals>
+                  <goal>compile</goal>
+                </goals>
+                <configuration>
+                  <source>1.7</source>
+                  <target>1.7</target>
+                  <excludes>
+                    <!-- This pattern is brittle; we would prefer to filter on the directory
+                         but that seems to be unavailable to us. -->
+                    <exclude>**/*Java8*.java</exclude>
+                  </excludes>
+                </configuration>
+              </execution>
+
+              <!-- Set `-source 1.8 -target 1.8` for Java 8 examples -->
+              <execution>
+                <id>java8-compile</id>
+                <phase>compile</phase>
+                <goals>
+                  <goal>compile</goal>
+                </goals>
+                <configuration>
+                  <source>1.8</source>
+                  <target>1.8</target>
+                  <includes>
+                    <!-- This pattern is brittle; we would prefer to filter on the directory
+                         but that seems to be unavailable to us. -->
+                    <include>**/*Java8*.java</include>
+                  </includes>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
   <build>
     <plugins>
       <plugin>
