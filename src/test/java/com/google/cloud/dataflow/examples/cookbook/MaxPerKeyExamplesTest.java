@@ -21,7 +21,6 @@ import com.google.cloud.dataflow.examples.cookbook.MaxPerKeyExamples.ExtractTemp
 import com.google.cloud.dataflow.examples.cookbook.MaxPerKeyExamples.FormatMaxesFn;
 import com.google.cloud.dataflow.sdk.transforms.DoFnTester;
 import com.google.cloud.dataflow.sdk.values.KV;
-import com.google.common.collect.ImmutableList;
 
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
@@ -47,13 +46,17 @@ public class MaxPerKeyExamplesTest {
         .set("month", "6").set("day", "18")
         .set("year", "2014").set("mean_temp", "45.3")
         .set("tornado", true);
-  private static final List<TableRow> TEST_ROWS = ImmutableList.of(row1, row2, row3);
+  private static final TableRow[] ROWS_ARRAY = new TableRow[] {
+    row1, row2, row3
+  };
 
   private static final KV<Integer, Double> kv1 = KV.of(6, 85.3);
   private static final KV<Integer, Double> kv2 = KV.of(6, 45.3);
   private static final KV<Integer, Double> kv3 = KV.of(7, 75.4);
 
-  private static final List<KV<Integer, Double>> TEST_KVS = ImmutableList.of(kv1, kv2, kv3);
+  static final KV[] TUPLES_ARRAY = new KV[] {
+    kv1, kv2, kv3
+  };
 
   private static final TableRow resultRow1 = new TableRow()
       .set("month", 6)
@@ -67,7 +70,7 @@ public class MaxPerKeyExamplesTest {
   public void testExtractTempFn() {
     DoFnTester<TableRow, KV<Integer, Double>> extractTempFn =
         DoFnTester.of(new ExtractTempFn());
-    List<KV<Integer, Double>> results = extractTempFn.processBatch(TEST_ROWS);
+    List<KV<Integer, Double>> results = extractTempFn.processBatch(ROWS_ARRAY);
     Assert.assertThat(results, CoreMatchers.hasItem(kv1));
     Assert.assertThat(results, CoreMatchers.hasItem(kv2));
     Assert.assertThat(results, CoreMatchers.hasItem(kv3));
@@ -77,7 +80,7 @@ public class MaxPerKeyExamplesTest {
   public void testFormatMaxesFn() {
     DoFnTester<KV<Integer, Double>, TableRow> formatMaxesFnFn =
         DoFnTester.of(new FormatMaxesFn());
-    List<TableRow> results = formatMaxesFnFn.processBatch(TEST_KVS);
+    List<TableRow> results = formatMaxesFnFn.processBatch(TUPLES_ARRAY);
     Assert.assertThat(results, CoreMatchers.hasItem(resultRow1));
     Assert.assertThat(results, CoreMatchers.hasItem(resultRow2));
   }
