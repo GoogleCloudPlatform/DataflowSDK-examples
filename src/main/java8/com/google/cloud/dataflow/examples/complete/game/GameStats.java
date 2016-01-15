@@ -16,16 +16,10 @@
 
 package com.google.cloud.dataflow.examples.complete.game;
 
-import com.google.api.services.bigquery.model.TableFieldSchema;
-import com.google.api.services.bigquery.model.TableRow;
-import com.google.api.services.bigquery.model.TableSchema;
 import com.google.cloud.dataflow.examples.common.DataflowExampleUtils;
+import com.google.cloud.dataflow.examples.complete.game.utils.WriteWindowedToBigQuery;
 import com.google.cloud.dataflow.sdk.Pipeline;
 import com.google.cloud.dataflow.sdk.PipelineResult;
-import com.google.cloud.dataflow.sdk.coders.AvroCoder;
-import com.google.cloud.dataflow.sdk.coders.DefaultCoder;
-import com.google.cloud.dataflow.sdk.io.BigQueryIO;
-import com.google.cloud.dataflow.sdk.io.BigQueryIO.Write.CreateDisposition;
 import com.google.cloud.dataflow.sdk.io.PubsubIO;
 import com.google.cloud.dataflow.sdk.options.Default;
 import com.google.cloud.dataflow.sdk.options.Description;
@@ -39,37 +33,28 @@ import com.google.cloud.dataflow.sdk.transforms.MapElements;
 import com.google.cloud.dataflow.sdk.transforms.Mean;
 import com.google.cloud.dataflow.sdk.transforms.PTransform;
 import com.google.cloud.dataflow.sdk.transforms.ParDo;
-import com.google.cloud.dataflow.sdk.transforms.SerializableComparator;
-import com.google.cloud.dataflow.sdk.transforms.SimpleFunction;
+import com.google.cloud.dataflow.sdk.transforms.Sum;
 import com.google.cloud.dataflow.sdk.transforms.Values;
 import com.google.cloud.dataflow.sdk.transforms.View;
-import com.google.cloud.dataflow.sdk.transforms.windowing.AfterEach;
-import com.google.cloud.dataflow.sdk.transforms.windowing.AfterProcessingTime;
-import com.google.cloud.dataflow.sdk.transforms.windowing.AfterWatermark;
 import com.google.cloud.dataflow.sdk.transforms.windowing.FixedWindows;
-import com.google.cloud.dataflow.sdk.transforms.windowing.GlobalWindows;
 import com.google.cloud.dataflow.sdk.transforms.windowing.IntervalWindow;
 import com.google.cloud.dataflow.sdk.transforms.windowing.OutputTimeFns;
-import com.google.cloud.dataflow.sdk.transforms.windowing.Repeatedly;
 import com.google.cloud.dataflow.sdk.transforms.windowing.Sessions;
-import com.google.cloud.dataflow.sdk.transforms.Sum;
 import com.google.cloud.dataflow.sdk.transforms.windowing.Window;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.cloud.dataflow.sdk.values.PCollectionView;
-import com.google.cloud.dataflow.sdk.values.PDone;
 import com.google.cloud.dataflow.sdk.values.TypeDescriptor;
 
-import org.apache.avro.reflect.Nullable;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Duration;
+import org.joda.time.Instant;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
 
@@ -123,6 +108,7 @@ public class GameStats extends LeaderBoard {
    * We do this by finding the mean total score per user, then using that information as a side
    * input to filter out all but those user scores that are > (mean * SCORE_WEIGHT)
    */
+  // [START DocInclude_AbuseDetect]
   public static class CalculateSpammyUsers
       extends PTransform<PCollection<KV<String, Integer>>, PCollection<KV<String, Integer>>> {
     private static final Logger LOG = LoggerFactory.getLogger(CalculateSpammyUsers.class);
@@ -163,6 +149,7 @@ public class GameStats extends LeaderBoard {
       return filtered;
     }
   }
+  // [END DocInclude_AbuseDetect]
 
   /**
    * Calculate and output an element's session duration.
@@ -199,68 +186,61 @@ public class GameStats extends LeaderBoard {
     Integer getSessionGap();
     void setSessionGap(Integer value);
 
-    @Description("Numeric value of fixed window for finding mean of user session duration, " +
-        "in minutes")
+    @Description("Numeric value of fixed window for finding mean of user session duration, "
+        + "in minutes")
     @Default.Integer(30)
     Integer getUserActivityWindowDuration();
     void setUserActivityWindowDuration(Integer value);
 
     @Description("Prefix used for the BigQuery table names")
     @Default.String("game_stats")
-    String getTableName();
-    void setTableName(String value);
+    String getTablePrefix();
+    void setTablePrefix(String value);
+  }
+
+
+  /**
+   * Create a map of information that describes how to write pipeline output to BigQuery. This map
+   * is used to write information about team score sums.
+   */
+  protected static Map<String, WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>>
+      configureWindowedWrite() {
+    Map<String, WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>> tableConfigure =
+        new HashMap<String, WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>>();
+    tableConfigure.put("team",
+        new WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>("STRING",
+            c -> c.element().getKey()));
+    tableConfigure.put("total_score",
+        new WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>("INTEGER",
+            c -> c.element().getValue()));
+    tableConfigure.put("window_start",
+        new WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>("STRING",
+          c -> { IntervalWindow w = (IntervalWindow) c.window();
+                 return fmt.print(w.start()); }));
+    tableConfigure.put("processing_time",
+        new WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>(
+            "STRING", c -> fmt.print(Instant.now())));
+    return tableConfigure;
   }
 
   /**
-   * Format user activity information (objects of type UserActivityInfo) and write to BigQuery.
-   * The constructor argument indicates the table prefix to use.
+   * Create a map of information that describes how to write pipeline output to BigQuery. This map
+   * is used to write information about mean user session time.
    */
-  public static class WriteAverageSessionLengthToBigQuery
-      extends PTransform<PCollection<Double>, PDone> {
+  protected static Map<String, WriteWindowedToBigQuery.FieldInfo<Double>>
+      configureSessionWindowWrite() {
 
-    private final String tablePrefix;
-
-    public WriteAverageSessionLengthToBigQuery(String tablePrefix) {
-      this.tablePrefix = tablePrefix;
-    }
-
-    /**
-     *  Convert the user activity info into a BigQuery TableRow.
-     */
-    private class BuildSessionActivityRowFn extends DoFn<Double, TableRow>
-        implements RequiresWindowAccess {
-
-      @Override
-      public void processElement(ProcessContext c) {
-
-        IntervalWindow w = (IntervalWindow) c.window();
-
-        TableRow row = new TableRow()
-         .set("window_start", fmt.print(w.start()))
-         .set("mean_duration", c.element());
-        c.output(row);
-      }
-    }
-
-    /** Build the output table schema. */
-    private TableSchema getMeanSchema() {
-      List<TableFieldSchema> fields = new ArrayList<>();
-      fields.add(new TableFieldSchema().setName("window_start").setType("STRING"));
-      fields.add(new TableFieldSchema().setName("mean_duration").setType("FLOAT"));
-      return new TableSchema().setFields(fields);
-    }
-
-    @Override
-    public PDone apply(PCollection<Double> userInfo) {
-      return userInfo
-        .apply(ParDo.named("ConvertToUserInfoRow").of(new BuildSessionActivityRowFn()))
-        .apply(BigQueryIO.Write
-                  .to(getTable(userInfo.getPipeline(),
-                      tablePrefix + "_mean_sessions"))
-                  .withSchema(getMeanSchema())
-                  .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED));
-    }
+    Map<String, WriteWindowedToBigQuery.FieldInfo<Double>> tableConfigure =
+        new HashMap<String, WriteWindowedToBigQuery.FieldInfo<Double>>();
+    tableConfigure.put("window_start",
+        new WriteWindowedToBigQuery.FieldInfo<Double>("STRING",
+          c -> { IntervalWindow w = (IntervalWindow) c.window();
+                 return fmt.print(w.start()); }));
+    tableConfigure.put("mean_duration",
+        new WriteWindowedToBigQuery.FieldInfo<Double>("FLOAT", c -> c.element()));
+    return tableConfigure;
   }
+
 
 
   public static void main(String[] args) throws Exception {
@@ -299,6 +279,7 @@ public class GameStats extends LeaderBoard {
       // in calculating the team score sums, below.
       .apply("CreateSpammersView", View.<String, Integer>asMap());
 
+    // [START DocInclude_FilterAndCalc]
     // Calculate the total score per team over fixed windows,
     // and emit cumulative updates for late data. Uses the side input derived above-- the set of
     // suspected robots-- to filter out scores from those users from the sum.
@@ -320,10 +301,14 @@ public class GameStats extends LeaderBoard {
                   }}}))
       // Extract and sum teamname/score pairs from the event data.
       .apply("ExtractTeamScore", new ExtractAndSumScore("team"))
+      // [END DocInclude_FilterAndCalc]
       // Write the result to BigQuery
       .apply("WriteTeamSums",
-             new WriteScoresToBigQuery(options.getTableName(), "team", true, false));
+             new WriteWindowedToBigQuery<KV<String, Integer>>(
+                options.getTablePrefix() + "_team", configureWindowedWrite()));
 
+
+    // [START DocInclude_SessionCalc]
     // Calculate the total score for the users per session-- that is, a burst of activity
     // separated by a gap from further activity. Find and record the mean session lengths.
     // This information could help the game designers track the changing user engagement
@@ -338,7 +323,8 @@ public class GameStats extends LeaderBoard {
       .apply("UserSessionSum", Sum.<String>integersPerKey())
       // Get the duration per session.
       .apply("UserSessionActivity", ParDo.of(new UserSessionInfoFn()))
-
+      // [END DocInclude_SessionCalc]
+      // [START DocInclude_Rewindow]
       // Re-window to process groups of session sums according to when the sessions complete.
       .apply(Window.named("WindowToExtractSessionMean")
             .<Integer>into(
@@ -349,7 +335,9 @@ public class GameStats extends LeaderBoard {
       .apply(Mean.<Integer>globally().withoutDefaults())
       // Write this info to a BigQuery table.
       .apply("WriteAvgSessionLength",
-             new WriteAverageSessionLengthToBigQuery(options.getTableName()));
+             new WriteWindowedToBigQuery<Double>(
+                options.getTablePrefix() + "_sessions", configureSessionWindowWrite()));
+    // [END DocInclude_Rewindow]
 
 
     // Run the pipeline and wait for the pipeline to finish; capture cancellation requests from the
