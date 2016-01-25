@@ -22,7 +22,7 @@
   <parent>
     <groupId>com.google.cloud.dataflow</groupId>
     <artifactId>google-cloud-dataflow-java-sdk-parent</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
   </parent>
 
   <groupId>com.google.cloud.dataflow</groupId>
@@ -219,7 +219,7 @@
     <dependency>
       <groupId>com.google.cloud.dataflow</groupId>
       <artifactId>google-cloud-dataflow-java-sdk-all</artifactId>
-      <version>1.3.0</version>
+      <version>1.4.0</version>
     </dependency>
 
     <!-- Dependencies below this line are specific dependencies needed by the examples code. -->
