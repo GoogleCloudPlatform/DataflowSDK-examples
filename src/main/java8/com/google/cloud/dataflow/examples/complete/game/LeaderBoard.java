@@ -40,14 +40,15 @@ import com.google.cloud.dataflow.sdk.transforms.windowing.Window;
 import com.google.cloud.dataflow.sdk.values.KV;
 import com.google.cloud.dataflow.sdk.values.PCollection;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TimeZone;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TimeZone;
+
 
 /**
  * This class is the third in a series of four pipelines that tell a story in a 'gaming' domain,
@@ -56,26 +57,26 @@ import org.joda.time.format.DateTimeFormatter;
  * early/speculative results; using .accumulatingFiredPanes() to do cumulative processing of late-
  * arriving data.
  *
- * <p> This pipeline processes an unbounded stream of 'game events'. The calculation of the team
+ * <p>This pipeline processes an unbounded stream of 'game events'. The calculation of the team
  * scores uses fixed windowing based on event time (the time of the game play event), not
  * processing time (the time that an event is processed by the pipeline). The pipeline calculates
  * the sum of scores per team, for each window. By default, the team scores are calculated using
  * one-hour windows.
  *
- * <p> In contrast-- to demo another windowing option-- the user scores are calculated using a
+ * <p>In contrast-- to demo another windowing option-- the user scores are calculated using a
  * global window, which periodically (every ten minutes) emits cumulative user score sums.
  *
- * <p> In contrast to the previous pipelines in the series, which used static, finite input data,
+ * <p>In contrast to the previous pipelines in the series, which used static, finite input data,
  * here we're using an unbounded data source, which lets us provide speculative results, and allows
  * handling of late data, at much lower latency. We can use the early/speculative results to keep a
  * 'leaderboard' updated in near-realtime. Our handling of late data lets us generate correct
  * results, e.g. for 'team prizes'. We're now outputting window results as they're
  * calculated, giving us much lower latency than with the previous batch examples.
  *
- * <p> Run {@link injector.Injector} to generate pubsub data for this pipeline.  The Injector
+ * <p>Run {@link injector.Injector} to generate pubsub data for this pipeline.  The Injector
  * documentation provides more detail on how to do this.
  *
- * <p> To execute this pipeline using the Dataflow service, specify the pipeline configuration
+ * <p>To execute this pipeline using the Dataflow service, specify the pipeline configuration
  * like this:
  * <pre>{@code
  *   --project=YOUR_PROJECT_ID
@@ -102,7 +103,7 @@ public class LeaderBoard extends HourlyTeamScore {
   /**
    * Options supported by {@link LeaderBoard}.
    */
-  static interface Options extends HourlyTeamScore.Options, DataflowExampleOptions {
+  interface Options extends HourlyTeamScore.Options, DataflowExampleOptions {
 
     @Description("Pub/Sub topic to read from")
     @Validation.Required
@@ -142,8 +143,10 @@ public class LeaderBoard extends HourlyTeamScore {
             c -> c.element().getValue()));
     tableConfigure.put("window_start",
         new WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>("STRING",
-          c -> { IntervalWindow w = (IntervalWindow) c.window();
-                 return fmt.print(w.start()); }));
+          c -> {
+            IntervalWindow w = (IntervalWindow) c.window();
+            return fmt.print(w.start());
+        }));
     tableConfigure.put("processing_time",
         new WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>(
             "STRING", c -> fmt.print(Instant.now())));

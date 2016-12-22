@@ -65,21 +65,21 @@ import java.util.TimeZone;
  * New concepts: session windows and finding session duration; use of both
  * singleton and non-singleton side inputs.
  *
- * <p> This pipeline builds on the {@link LeaderBoard} functionality, and adds some "business
+ * <p>This pipeline builds on the {@link LeaderBoard} functionality, and adds some "business
  * intelligence" analysis: abuse detection and usage patterns. The pipeline derives the Mean user
  * score sum for a window, and uses that information to identify likely spammers/robots. (The robots
  * have a higher click rate than the human users). The 'robot' users are then filtered out when
  * calculating the team scores.
  *
- * <p> Additionally, user sessions are tracked: that is, we find bursts of user activity using
+ * <p>Additionally, user sessions are tracked: that is, we find bursts of user activity using
  * session windows. Then, the mean session duration information is recorded in the context of
  * subsequent fixed windowing. (This could be used to tell us what games are giving us greater
  * user retention).
  *
- * <p> Run {@link injector.Injector} to generate pubsub data for this pipeline.  The Injector
+ * <p>Run {@link injector.Injector} to generate pubsub data for this pipeline.  The Injector
  * documentation provides more detail.
  *
- * <p> To execute this pipeline using the Dataflow service, specify the pipeline configuration
+ * <p>To execute this pipeline using the Dataflow service, specify the pipeline configuration
  * like this:
  * <pre>{@code
  *   --project=YOUR_PROJECT_ID
@@ -171,7 +171,7 @@ public class GameStats extends LeaderBoard {
   /**
    * Options supported by {@link GameStats}.
    */
-  static interface Options extends LeaderBoard.Options {
+  interface Options extends LeaderBoard.Options {
     @Description("Pub/Sub topic to read from")
     @Validation.Required
     String getTopic();
@@ -216,8 +216,10 @@ public class GameStats extends LeaderBoard {
             c -> c.element().getValue()));
     tableConfigure.put("window_start",
         new WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>("STRING",
-          c -> { IntervalWindow w = (IntervalWindow) c.window();
-                 return fmt.print(w.start()); }));
+          c -> {
+            IntervalWindow w = (IntervalWindow) c.window();
+            return fmt.print(w.start());
+        }));
     tableConfigure.put("processing_time",
         new WriteWindowedToBigQuery.FieldInfo<KV<String, Integer>>(
             "STRING", c -> fmt.print(Instant.now())));
@@ -235,8 +237,10 @@ public class GameStats extends LeaderBoard {
         new HashMap<String, WriteWindowedToBigQuery.FieldInfo<Double>>();
     tableConfigure.put("window_start",
         new WriteWindowedToBigQuery.FieldInfo<Double>("STRING",
-          c -> { IntervalWindow w = (IntervalWindow) c.window();
-                 return fmt.print(w.start()); }));
+          c -> {
+            IntervalWindow w = (IntervalWindow) c.window();
+            return fmt.print(w.start());
+        }));
     tableConfigure.put("mean_duration",
         new WriteWindowedToBigQuery.FieldInfo<Double>("FLOAT", c -> c.element()));
     return tableConfigure;
@@ -299,7 +303,8 @@ public class GameStats extends LeaderBoard {
                   // If the user is not in the spammers Map, output the data element.
                   if (c.sideInput(spammersView).get(c.element().getUser().trim()) == null) {
                     c.output(c.element());
-                  }}}))
+                  }
+                }}))
       // Extract and sum teamname/score pairs from the event data.
       .apply("ExtractTeamScore", new ExtractAndSumScore("team"))
       // [END DocInclude_FilterAndCalc]
