@@ -34,11 +34,15 @@ matrix:
        env: CUSTOM_JDK="default"
 
 before_install:
-  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export JAVA_HOME=$(/usr/libexec/java_home); fi
-  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then jdk_switcher use "$CUSTOM_JDK"; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export JAVA_HOME=$(/usr/libexec/java_home); fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then jdk_switcher use "$CUSTOM_JDK"; fi
 
 install:
-  - travis_retry mvn install clean -U -DskipTests=true
+  - travis_retry mvn install clean -U -DskipTests=true -f java/starter/pom.xml
+  - travis_retry mvn install clean -U -DskipTests=true -f java/examples/pom.xml
+  - if [[ "$CUSTOM_JDK" == "oraclejdk8" || "$CUSTOM_JDK" == "default" ]]; then travis_retry mvn install clean -U -DskipTests=true -f java/examples-java8/pom.xml; fi
 
 script:
-  - travis_retry mvn install -U
+  - travis_retry mvn install -U -f java/starter/pom.xml
+  - travis_retry mvn install -U -f java/examples/pom.xml
+  - if [[ "$CUSTOM_JDK" == "oraclejdk8" || "$CUSTOM_JDK" == "default" ]]; then travis_retry mvn install -U -f java/examples-java8/pom.xml; fi
